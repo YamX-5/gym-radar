@@ -1,0 +1,11 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+
+# dependencies (none needed — this is a static app)
+node_modules/
+
+# local scratch
+*.tmp

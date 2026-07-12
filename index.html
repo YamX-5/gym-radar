@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Gym Radar</title>
+  <meta name="theme-color" content="#0B0E13">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <link rel="stylesheet" href="./css/app.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="side">
+      <div class="brand">
+        <div class="logo" id="brandLogo">G</div>
+        <div><div class="nm" id="brandName">Gym Radar</div><div class="tag">GYM RADAR</div></div>
+      </div>
+      <nav class="nav" id="nav"></nav>
+      <div class="who"><div class="av">س</div><div style="font-size:13px"><b>سامر</b><div style="font-size:11px;color:var(--muted)">الاستقبال</div></div></div>
+    </aside>
+    <main class="main" id="view"></main>
+  </div>
+  <nav class="mnav" id="mnav"></nav>
+
+  <div class="cfx" id="cfx"></div>
+  <div class="toast" id="toast"></div>
+  <div id="drawerMount"></div>
+  <div id="modalMount"></div>
+
+  <script src="./vendor/xlsx.full.min.js"></script>
+  <script src="./js/config.js"></script>
+  <!-- pull supabase-js only when a backend is configured (keeps offline/local mode CDN-free) -->
+  <script>
+    if (window.GR_CONFIG && window.GR_CONFIG.supabaseUrl && window.GR_CONFIG.supabaseAnonKey) {
+      document.write('<scr' + 'ipt src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/scr' + 'ipt>');
+    }
+  </script>
+  <script src="./js/store.js"></script>
+  <script src="./js/supabase-adapter.js"></script>
+  <script src="./js/seed.js"></script>
+  <script src="./js/domain.js"></script>
+  <script src="./js/bot.js"></script>
+  <script src="./js/wa.js"></script>
+  <script src="./js/importer.js"></script>
+  <script src="./js/app.js"></script>
+</body>
+</html>
