@@ -120,14 +120,14 @@ async function membersScreen() {
     <div class="spacer"></div><input class="search" id="mSearch" placeholder="ابحث بالاسم أو الهاتف…" value="${esc(ST.search)}" oninput="onSearch(this.value)">
     <button class="btn btn-ghost" onclick="openImport()">استيراد</button><button class="btn btn-primary" onclick="openAddMember()">عضو جديد</button></div>
   <div class="chips">${[['all', 'الكل'], ['active', 'نشطون'], ['expiring', 'ينتهي قريبًا'], ['expired', 'منتهٍ'], ['debt', 'عليه مستحقات']].map(c => `<button class="chip ${ST.filter === c[0] ? 'on' : ''}" onclick="ST.filter='${c[0]}';membersScreen()">${c[1]}</button>`).join('')}</div>
-  <div class="card">${ms.length ? `<table class="tbl"><thead><tr><th>العضو</th><th>الهاتف</th><th>الخطة</th><th>الحالة</th><th>ينتهي</th><th></th></tr></thead>
+  <div class="card">${ms.length ? `<div class="tblx"><table class="tbl"><thead><tr><th>العضو</th><th>الهاتف</th><th>الخطة</th><th>الحالة</th><th>ينتهي</th><th></th></tr></thead>
     <tbody>${ms.map((m, i) => `<tr class="click rise" style="animation-delay:${i * .02}s" onclick="openMember(${m.id})">
       <td><div style="display:flex;align-items:center;gap:10px"><div class="av" style="width:34px;height:34px;font-size:13px;background:${av(m.id)}">${esc(fi(m.full_name))}</div><b>${esc(m.full_name)}</b></div></td>
       <td><span class="num" style="color:var(--muted)">${esc(m.phone || '—')}</span></td>
       <td style="color:var(--muted)">${esc(m.plan_name || '—')}</td>
       <td><span class="pill ${(ST_LABEL[m.sub_status] || ST_LABEL.none)[1]}">${(ST_LABEL[m.sub_status] || ST_LABEL.none)[0]}</span>${m.debt > 0 ? ' <span class="pill p-violet">دَين</span>' : ''}</td>
       <td><span class="num" style="color:var(--muted)">${m.end_date || (m.sessions_left != null ? m.sessions_left + ' حصة' : '—')}</span></td>
-      <td onclick="event.stopPropagation()">${m.phone ? `<button class="mini wa" onclick="wa(${m.id},'${m.sub_status === 'expired' ? 'expired' : m.debt > 0 ? 'debt' : 'pre_expiry'}')">واتساب</button>` : ''}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">لا يوجد أعضاء بهذا البحث</div>'}</div>`;
+      <td onclick="event.stopPropagation()">${m.phone ? `<button class="mini wa" onclick="wa(${m.id},'${m.sub_status === 'expired' ? 'expired' : m.debt > 0 ? 'debt' : 'pre_expiry'}')">واتساب</button>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">لا يوجد أعضاء بهذا البحث</div>'}</div>`;
 }
 let searchT;
 function onSearch(v) { ST.search = v; clearTimeout(searchT); searchT = setTimeout(membersScreen, 200); }
@@ -181,7 +181,7 @@ async function payments() {
   }
   $('#view').innerHTML = `<div class="top"><div><h1>المدفوعات</h1><div class="sub">هذا الشهر</div></div>
     <div class="spacer"></div><div class="card" style="padding:12px 18px"><div style="font-size:11px;color:var(--muted)">إجمالي الشهر</div><div style="font-size:22px;font-weight:800"><span class="num" data-count="${Math.round(total)}">0</span> <span style="font-size:12px;color:var(--muted)">د.أ</span></div></div></div>
-  <div class="card">${pays.length ? `<table class="tbl"><thead><tr><th>الإيصال</th><th>العضو</th><th>المبلغ</th><th>الطريقة</th><th>التاريخ</th></tr></thead><tbody>${await payRows(pays)}</tbody></table>` : '<div class="empty">لا مدفوعات هذا الشهر</div>'}</div>${analytics}`;
+  <div class="card">${pays.length ? `<div class="tblx"><table class="tbl"><thead><tr><th>الإيصال</th><th>العضو</th><th>المبلغ</th><th>الطريقة</th><th>التاريخ</th></tr></thead><tbody>${await payRows(pays)}</tbody></table></div>` : '<div class="empty">لا مدفوعات هذا الشهر</div>'}</div>${analytics}`;
 }
 async function payRows(pays) {
   const names = {}; for (const m of await STORE.all('members')) names[m.id] = m.full_name;

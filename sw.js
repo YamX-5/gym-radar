@@ -1,7 +1,7 @@
 /* Gym Radar — service worker (offline-first, stale-while-revalidate)
    Serves cache instantly (works offline) AND refreshes it in the background,
    so a new deploy is picked up on the next load — no stuck stale bundles. */
-const CACHE = 'gym-radar-v3';
+const CACHE = 'gym-radar-v4';
 const ASSETS = [
   './', './index.html',
   './css/app.css',
