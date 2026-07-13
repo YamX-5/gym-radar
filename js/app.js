@@ -19,12 +19,15 @@ const ICONS = {
   lock: svg('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
   logout: svg('<path d="M15 12H5M9 8l-4 4 4 4"/><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/>'),
   add: svg('<path d="M12 5v14M5 12h14"/>'),
+  qr: svg('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3M14 18v3M18 21h3M21 14v3"/>'),
+  clock: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
 };
 
 const ST = { screen: 'dashboard', role: 'admin', filter: 'all', search: '' };
 const NAV = [
   { k: 'dashboard', t: 'لوحة القيادة', ic: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>' },
   { k: 'members', t: 'الأعضاء', ic: '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3 3 0 0 1 0 5.6"/>' },
+  { k: 'checkin', t: 'الحضور', ic: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3M14 18v3M18 21h3M21 14v3"/>' },
   { k: 'payments', t: 'المدفوعات', ic: '<rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 9.5h19"/>' },
   { k: 'assistant', t: 'المساعد', ic: '<path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.4 8.8 8.8 0 0 1-3.8-.8L3 20.5l1.4-4.3A8.4 8.4 0 1 1 21 11.5Z"/>' },
   { k: 'settings', t: 'الإعدادات', ic: '<circle cx="12" cy="12" r="3"/><path d="M19.4 13a7 7 0 0 0 0-2l1.5-1.2-1.7-2.9-1.8.7a7 7 0 0 0-1.7-1L15.3 4h-3.4l-.3 1.9a7 7 0 0 0-1.7 1l-1.8-.7-1.7 2.9L7.6 11a7 7 0 0 0 0 2l-1.5 1.2 1.7 2.9 1.8-.7a7 7 0 0 0 1.7 1l.3 1.9h3.4l.3-1.9a7 7 0 0 0 1.7-1l1.8.7 1.7-2.9Z"/>' },
@@ -55,7 +58,7 @@ function paintNav() {
     `<button class="${n.k === ST.screen ? 'on' : ''}" onclick="go('${n.k}')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${n.ic}</svg>${n.t.split(' ')[0]}</button>`).join('');
 }
 function go(k) { ST.screen = k; paintNav(); render(); window.scrollTo(0, 0); }
-async function render() { await ({ dashboard: dash, members: membersScreen, payments: payments, assistant: assistant, settings: settings }[ST.screen])(); post(); }
+async function render() { await ({ dashboard: dash, members: membersScreen, checkin: checkinScreen, payments: payments, assistant: assistant, settings: settings }[ST.screen])(); post(); }
 
 /* ---------- DASHBOARD ---------- */
 async function dash() {
@@ -71,6 +74,7 @@ async function dash() {
   ];
   const birthdays = await birthdayList();
   const visiting = r.expired.slice(0, 2);
+  const atrisk = await CHECKIN.atRisk();
   $('#view').innerHTML = `
   <div class="top"><div><h1>لوحة القيادة</h1><div class="sub">${esc(STORE.getSetting('gym_name','النادي'))} · <span class="num">${DOMAIN.iso(DOMAIN.today())}</span> · هل كل شيء على ما يُرام؟</div></div>
     <div class="spacer"></div><input class="search" placeholder="ابحث عن عضو…" onkeydown="if(event.key==='Enter'){ST.search=this.value;go('members')}">
@@ -90,6 +94,12 @@ async function dash() {
     ${radarCol('exp', 'منتهٍ', r.expired, 'bad', 'var(--red)', 'expired')}
     ${radarCol('debt', 'عليه مستحقات', r.debts, 'owe', 'var(--violet)', 'debt')}
   </div>
+  ${atrisk.length ? `<div class="mini-card rise" style="margin-top:16px">
+    <h3>${ICONS.clock}لم يحضروا منذ فترة <span class="pill p-amber" style="margin-inline-start:4px">${atrisk.length}</span></h3>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">اشتراكهم فعّال لكنهم انقطعوا عن الحضور — ذكّرهم قبل أن يتركوا</div>
+    ${atrisk.slice(0, 6).map(m => `<div class="line"><div class="av" style="width:30px;height:30px;font-size:12px;background:${av(m.id)}">${esc(fi(m.full_name))}</div>
+      <div style="flex:1"><b>${esc(m.full_name)}</b><div style="font-size:12px;color:var(--amber)">آخر حضور منذ <span class="num">${m.gap}</span> يومًا</div></div>
+      ${m.phone ? `<button class="mini wa" onclick="wa(${m.id},'inactive')">تذكير</button>` : ''}</div>`).join('')}</div>` : ''}
   <div class="grid2">
     <div class="mini-card rise"><h3>${ICONS.gift}أعياد ميلاد هذا الشهر</h3>${birthdays.length ? birthdays.map((b, i) => `<div class="line"><div class="av" style="width:30px;height:30px;font-size:12px;background:${av(i)}">${esc(fi(b.name))}</div><div style="flex:1"><b>${esc(b.name)}</b></div><span class="num" style="color:var(--muted)">${b.date}</span><button class="mini wa" onclick="wa(${b.id},'welcome')">تهنئة</button></div>`).join('') : '<div class="empty">لا أعياد ميلاد مسجّلة هذا الشهر</div>'}</div>
     <div class="mini-card rise"><h3>${ICONS.door}حضروا اليوم واشتراكهم منتهٍ</h3><div style="font-size:12px;color:var(--muted);margin-bottom:6px">من وحدة تسجيل الحضور — أوقفهم بلطف عند الباب</div>
@@ -152,6 +162,9 @@ async function openMember(id) {
         <button class="btn btn-primary" style="flex:1" onclick="openRenew(${m.id})">تجديد الآن</button>
         ${m.phone ? `<button class="mini wa" style="padding:10px 14px" onclick="wa(${m.id},'pre_expiry')">واتساب</button>` : ''}
         <button class="btn btn-ghost" onclick="openDebt(${m.id})">دَين</button></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" style="flex:1" onclick="showMemberQR(${m.id})">${ICONS.qr} بطاقة الدخول (QR)</button>
+        <button class="btn btn-ghost" style="flex:1" onclick="manualCheckin(${m.id})">تسجيل حضور الآن</button></div>
       ${debts.length ? `<div><b style="font-size:13px;color:var(--violet)">مستحقات مفتوحة</b>${debts.map(d => `<div class="line"><div style="flex:1">${esc(d.reason || 'دَين')} · <span class="num">${d.created_date}</span></div><b class="num">${nf(d.amount)} د.أ</b><button class="mini" onclick="settleDebt(${d.id},this,${m.id})">تسديد</button></div>`).join('')}</div>` : ''}
       <div><b style="font-size:13px">سجلّ المدفوعات</b>${pays.length ? pays.slice(0, 8).map(p => `<div class="line"><span class="num" style="color:var(--muted);font-size:12px">${p.date}</span><span style="flex:1;color:var(--muted);font-size:12px">${methodAr(p.method)} · <span class="num">${esc(p.receipt || '')}</span></span><b class="num">${nf(p.amount)} د.أ</b></div>`).join('') : '<div class="empty">لا مدفوعات</div>'}</div>
     </div></div>`;
@@ -416,9 +429,13 @@ async function logout() { if (!STORE.adapter.isLocal) { try { await STORE.adapte
 async function ensureConfig() {
   const plans = await STORE.all('plans');
   if (!plans.length) { for (const p of SEED_PLANS) await STORE.put('plans', { ...p }); }
-  const defaults = { primary: '#F97316', primary2: '#FB923C', primary_ink: '#1A1205', theme: 'dark', lang: 'ar', expiring_days: '7', wa_cc: '962', attendance_enabled: '1' };
+  const defaults = { primary: '#F97316', primary2: '#FB923C', primary_ink: '#1A1205', theme: 'dark', lang: 'ar', expiring_days: '7', wa_cc: '962', attendance_enabled: '1', atrisk_days: '10' };
   for (const [k, v] of Object.entries(defaults)) if (STORE.getSetting(k) == null) STORE.setSetting(k, v);
-  if (!STORE.getSetting('templates')) STORE.setSetting('templates', JSON.stringify(TEMPLATES));
+  // merge any missing message templates (so existing gyms gain new ones like "inactive")
+  const tpl = JSON.parse(STORE.getSetting('templates') || '{}');
+  let tplChanged = false;
+  for (const [k, v] of Object.entries(TEMPLATES)) if (!tpl[k]) { tpl[k] = v; tplChanged = true; }
+  if (tplChanged) STORE.setSetting('templates', JSON.stringify(tpl));
   if (!STORE.getSetting('gym_name')) STORE.setSetting('gym_name', 'Gym Radar');
 }
 

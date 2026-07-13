@@ -7,7 +7,7 @@ const DEFAULT_SETTINGS = {
   primary: '#F97316', primary2: '#FB923C', primary_ink: '#1A1205',
   theme: 'dark', lang: 'ar',
   expiring_days: '7', wa_cc: '962',
-  attendance_enabled: '1',
+  attendance_enabled: '1', atrisk_days: '10',
 };
 
 const SEED_PLANS = [
@@ -23,6 +23,7 @@ const TEMPLATES = {
   expired: 'مرحبًا {الاسم} 👋\nانتهى اشتراكك في {النادي} منذ {الأيام} يومًا. اشتقنا إليك في النادي 💪\nيسعدنا تجديدك في أي وقت.',
   debt: 'مرحبًا {الاسم} 👋\nتذكير ودّي بأنّه بقي عليك مبلغ {المبلغ} دينار.\nشكرًا لك 🙏',
   welcome: 'أهلًا وسهلًا {الاسم} 🎉\nمرحبًا بك في {النادي}! اشتراكك فعّال حتى {تاريخ_الانتهاء}.\nبالتوفيق في رحلتك 💪',
+  inactive: 'مرحبًا {الاسم} 👋\nوحشتنا في {النادي}! ما شفناك من فترة واشتراكك لسا فعّال.\nنستناك 💪',
 };
 
 async function SEED(store, includeDemo = true) {
