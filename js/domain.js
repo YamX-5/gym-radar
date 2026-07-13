@@ -188,17 +188,28 @@ async function digestText() {
 }
 
 function round(n, d = 2) { const f = 10 ** d; return Math.round((+n || 0) * f) / f; }
-/* ---- Phase 2: expenses / profit / close-the-day ---- */
+/* ---- Phase 2: expenses / profit / close-the-day (incl. coach salaries) ---- */
 async function expensesBetween(a, b) { const es = await STORE.where('expenses', e => e.date >= iso(a) && e.date < iso(b)); return round(es.reduce((s, e) => s + (+e.amount || 0), 0)); }
-async function monthProfit() { const t = today(); const [f, n] = monthBounds(t); const rev = await revenueBetween(f, n); const exp = await expensesBetween(f, n); return { revenue: rev, expenses: exp, profit: round(rev - exp) }; }
+async function coachPaymentsBetween(a, b) { const cp = await STORE.where('coach_payments', c => c.date >= iso(a) && c.date < iso(b)); return round(cp.reduce((s, c) => s + (+c.amount || 0), 0)); }
+async function monthProfit() {
+  const t = today(); const [f, n] = monthBounds(t);
+  const rev = await revenueBetween(f, n);
+  const gen = await expensesBetween(f, n), sal = await coachPaymentsBetween(f, n);
+  const exp = round(gen + sal);
+  return { revenue: rev, generalExpenses: gen, salaries: sal, expenses: exp, profit: round(rev - exp) };
+}
 async function closeDay() {
   const t = today(), nx = new Date(+t + DAY);
   const pays = await STORE.where('payments', p => p.date >= iso(t) && p.date < iso(nx));
   const by = { cash: 0, cliq: 0, other: 0 };
   pays.forEach(p => { by[p.method] = (by[p.method] || 0) + (+p.amount || 0); });
+  const exp = round((await expensesBetween(t, nx)) + (await coachPaymentsBetween(t, nx)));
   return { count: pays.length, total: round(pays.reduce((s, p) => s + (+p.amount || 0), 0)),
-    cash: round(by.cash), cliq: round(by.cliq), other: round(by.other), expenses: await expensesBetween(t, nx) };
+    cash: round(by.cash), cliq: round(by.cliq), other: round(by.other), expenses: exp };
 }
+/* ---- Coaches ---- */
+async function coachAttendanceCount(coachId) { const [f, n] = monthBounds(today()); return (await STORE.where('coach_attendance', a => a.coach_id === coachId && (a.at || '').slice(0, 10) >= iso(f) && (a.at || '').slice(0, 10) < iso(n))).length; }
+async function coachPaidThisMonth(coachId) { const [f, n] = monthBounds(today()); return round((await STORE.where('coach_payments', c => c.coach_id === coachId && c.date >= iso(f) && c.date < iso(n))).reduce((s, c) => s + (+c.amount || 0), 0)); }
 /* ---- Phase 4: referrals + reminder ladder ---- */
 async function referralCount(memberId) { return (await STORE.where('members', m => m.referred_by === memberId)).length; }
 async function topReferrers(limit = 6) {
@@ -210,4 +221,5 @@ async function topReferrers(limit = 6) {
 async function reminderCount(memberId, kind) { return (await STORE.where('reminders', r => r.member_id === memberId && r.kind === kind)).length; }
 
 window.DOMAIN = { today, iso, enrich, listMembers, radar, createSubscription, kpis, revByMonth, revByPlan, methodSplit, revenueAtRisk, digestText, currentSub, subState, expiringDays, round,
-  expensesBetween, monthProfit, closeDay, referralCount, topReferrers, reminderCount };
+  expensesBetween, coachPaymentsBetween, monthProfit, closeDay, referralCount, topReferrers, reminderCount,
+  coachAttendanceCount, coachPaidThisMonth };

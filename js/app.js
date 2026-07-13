@@ -31,6 +31,7 @@ const NAV = [
   { k: 'checkin', t: 'الحضور', ic: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3M14 18v3M18 21h3M21 14v3"/>' },
   { k: 'payments', t: 'المدفوعات', ic: '<rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 9.5h19"/>' },
   { k: 'assistant', t: 'المساعد', ic: '<path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.4 8.8 8.8 0 0 1-3.8-.8L3 20.5l1.4-4.3A8.4 8.4 0 1 1 21 11.5Z"/>' },
+  { k: 'coaches', t: 'المدربون', ic: '<circle cx="9" cy="7" r="3"/><path d="M2.5 21a6.5 6.5 0 0 1 13 0"/><path d="M16 3.5a3 3 0 0 1 0 7"/><path d="M18.5 21a6.5 6.5 0 0 0-3-5.5"/>' },
   { k: 'settings', t: 'الإعدادات', ic: '<circle cx="12" cy="12" r="3"/><path d="M19.4 13a7 7 0 0 0 0-2l1.5-1.2-1.7-2.9-1.8.7a7 7 0 0 0-1.7-1L15.3 4h-3.4l-.3 1.9a7 7 0 0 0-1.7 1l-1.8-.7-1.7 2.9L7.6 11a7 7 0 0 0 0 2l-1.5 1.2 1.7 2.9 1.8-.7a7 7 0 0 0 1.7 1l.3 1.9h3.4l.3-1.9a7 7 0 0 0 1.7-1l1.8.7 1.7-2.9Z"/>' },
   { k: 'platform', t: 'المنصّة', admin: 'platform', ic: '<path d="M3 21h18"/><rect x="4" y="9" width="4" height="9"/><rect x="10" y="4" width="4" height="14"/><rect x="16" y="12" width="4" height="6"/>' },
 ];
@@ -54,7 +55,7 @@ function applyBrand() {
 
 /* ---------- nav ---------- */
 function navVisible(n) {
-  if (n.k === 'settings') return ST.role === 'admin';
+  if (n.k === 'settings' || n.k === 'coaches') return ST.role === 'admin';
   if (n.k === 'platform') return !!ST.isPlatformAdmin;
   return true;
 }
@@ -75,7 +76,7 @@ function openMoreSheet() {
   document.body.appendChild(ov);
 }
 function go(k) { ST.screen = k; paintNav(); render(); window.scrollTo(0, 0); }
-async function render() { await ({ dashboard: dash, members: membersScreen, checkin: checkinScreen, payments: payments, assistant: assistant, settings: settings, platform: platformScreen }[ST.screen])(); post(); }
+async function render() { await ({ dashboard: dash, members: membersScreen, checkin: checkinScreen, payments: payments, coaches: coachesScreen, assistant: assistant, settings: settings, platform: platformScreen }[ST.screen])(); post(); }
 
 /* ---------- DASHBOARD ---------- */
 async function dash() {
@@ -269,9 +270,10 @@ async function payments() {
     const exps = (await STORE.where('expenses', e => e.date >= DOMAIN.iso(f) && e.date < DOMAIN.iso(n))).sort((a, b) => a.date < b.date ? 1 : -1);
     analytics = `<div class="sec" style="margin-top:22px"><h2>التحليلات والأرباح</h2><span class="pill p-muted" style="padding:4px 10px">للإدارة فقط</span></div>
     <div class="grid2" style="margin-top:0">
-      <div class="mini-card"><h3>${ICONS.chart || ''}الربح هذا الشهر</h3>
+      <div class="mini-card"><h3>الربح هذا الشهر</h3>
         <div class="line"><span style="flex:1">الإيراد</span><b class="num">${nf(prof.revenue)} د.أ</b></div>
-        <div class="line"><span style="flex:1">المصروفات</span><b class="num" style="color:var(--red)">${nf(prof.expenses)} د.أ</b></div>
+        <div class="line"><span style="flex:1">مصروفات عامة</span><b class="num" style="color:var(--red)">${nf(prof.generalExpenses)} د.أ</b></div>
+        <div class="line"><span style="flex:1">رواتب المدربين</span><b class="num" style="color:var(--red)">${nf(prof.salaries)} د.أ</b></div>
         <div class="line" style="border-bottom:none"><span style="flex:1"><b>الصافي</b></span><b class="num" style="color:${prof.profit >= 0 ? 'var(--green)' : 'var(--red)'};font-size:17px">${nf(prof.profit)} د.أ</b></div></div>
       <div class="mini-card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><h3 style="margin:0">المصروفات</h3><button class="btn btn-ghost" style="padding:5px 12px;font-size:12px" onclick="openExpense()">+ مصروف</button></div>
         ${exps.length ? exps.map(e => `<div class="line"><span style="flex:1">${EX_CATS[e.category] || e.category}${e.note ? ' · ' + esc(e.note) : ''}</span><b class="num" style="color:var(--red)">${nf(e.amount)}</b><button class="mini" style="margin-inline-start:8px" onclick="deleteExpense(${e.id})">حذف</button></div>`).join('') : '<div class="empty">لا مصروفات هذا الشهر</div>'}</div>
