@@ -187,6 +187,14 @@ input::placeholder{color:var(--faint)}
 .gate-sub{font-size:17px;opacity:.95}
 .gate-debt{margin-top:6px;background:rgba(0,0,0,.22);padding:6px 16px;border-radius:999px;font-size:14px;font-weight:700}
 
+/* ---------- mobile "more" sheet ---------- */
+.sheet-scrim{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:120;display:flex;align-items:flex-end}
+.sheet{width:100%;background:var(--surface);border-top:1px solid var(--border);border-radius:16px 16px 0 0;padding:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:2px;animation:sheetup .24s ease}
+@keyframes sheetup{from{transform:translateY(100%)}to{transform:none}}
+.sheet button{display:flex;align-items:center;gap:12px;padding:14px;border:none;background:none;color:var(--text);font-size:15px;font-weight:600;text-align:start;border-radius:var(--r-sm);width:100%}
+.sheet button:hover{background:var(--surface-2)}
+.sheet .ic{width:20px;height:20px;color:var(--muted)}
+
 /* ---------- mobile refinements ---------- */
 .tblx{width:100%}
 @media(max-width:760px){

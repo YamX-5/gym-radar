@@ -77,9 +77,9 @@ async function radar() {
   for (const r of members) {
     const m = await enrich(r, exDays);
     const base = { id: m.id, full_name: m.full_name, phone: m.phone, plan_name: m.plan_name, days_left: m.days_left, end_date: m.end_date, debt: m.debt };
-    if (m.sub_status === 'expiring') soon.push({ ...base, reminded: await remindedToday(m.id, 'pre_expiry') });
-    else if (['expired', 'finished'].includes(m.sub_status)) expired.push({ ...base, reminded: await remindedToday(m.id, 'expired') });
-    if (m.debt > 0) debts.push({ ...base, reminded: await remindedToday(m.id, 'debt') });
+    if (m.sub_status === 'expiring') soon.push({ ...base, reminded: await remindedToday(m.id, 'pre_expiry'), remCount: await reminderCount(m.id, 'pre_expiry') });
+    else if (['expired', 'finished'].includes(m.sub_status)) expired.push({ ...base, reminded: await remindedToday(m.id, 'expired'), remCount: await reminderCount(m.id, 'expired') });
+    if (m.debt > 0) debts.push({ ...base, reminded: await remindedToday(m.id, 'debt'), remCount: await reminderCount(m.id, 'debt') });
   }
   soon.sort((a, b) => (a.days_left ?? 999) - (b.days_left ?? 999));
   expired.sort((a, b) => (a.days_left ?? 0) - (b.days_left ?? 0));
@@ -188,4 +188,26 @@ async function digestText() {
 }
 
 function round(n, d = 2) { const f = 10 ** d; return Math.round((+n || 0) * f) / f; }
-window.DOMAIN = { today, iso, enrich, listMembers, radar, createSubscription, kpis, revByMonth, revByPlan, methodSplit, revenueAtRisk, digestText, currentSub, subState, expiringDays, round };
+/* ---- Phase 2: expenses / profit / close-the-day ---- */
+async function expensesBetween(a, b) { const es = await STORE.where('expenses', e => e.date >= iso(a) && e.date < iso(b)); return round(es.reduce((s, e) => s + (+e.amount || 0), 0)); }
+async function monthProfit() { const t = today(); const [f, n] = monthBounds(t); const rev = await revenueBetween(f, n); const exp = await expensesBetween(f, n); return { revenue: rev, expenses: exp, profit: round(rev - exp) }; }
+async function closeDay() {
+  const t = today(), nx = new Date(+t + DAY);
+  const pays = await STORE.where('payments', p => p.date >= iso(t) && p.date < iso(nx));
+  const by = { cash: 0, cliq: 0, other: 0 };
+  pays.forEach(p => { by[p.method] = (by[p.method] || 0) + (+p.amount || 0); });
+  return { count: pays.length, total: round(pays.reduce((s, p) => s + (+p.amount || 0), 0)),
+    cash: round(by.cash), cliq: round(by.cliq), other: round(by.other), expenses: await expensesBetween(t, nx) };
+}
+/* ---- Phase 4: referrals + reminder ladder ---- */
+async function referralCount(memberId) { return (await STORE.where('members', m => m.referred_by === memberId)).length; }
+async function topReferrers(limit = 6) {
+  const map = {};
+  for (const m of await STORE.all('members')) if (m.referred_by) map[m.referred_by] = (map[m.referred_by] || 0) + 1;
+  const names = {}; for (const m of await STORE.all('members')) names[m.id] = m.full_name;
+  return Object.entries(map).map(([id, n]) => ({ id: +id, name: names[+id] || 'عضو', n })).sort((a, b) => b.n - a.n).slice(0, limit);
+}
+async function reminderCount(memberId, kind) { return (await STORE.where('reminders', r => r.member_id === memberId && r.kind === kind)).length; }
+
+window.DOMAIN = { today, iso, enrich, listMembers, radar, createSubscription, kpis, revByMonth, revByPlan, methodSplit, revenueAtRisk, digestText, currentSub, subState, expiringDays, round,
+  expensesBetween, monthProfit, closeDay, referralCount, topReferrers, reminderCount };

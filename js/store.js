@@ -5,7 +5,7 @@
    Every method returns a Promise, exactly like supabase-js would.
    ========================================================================= */
 
-const ENTITIES = ['members', 'plans', 'subscriptions', 'payments', 'debts', 'reminders', 'checkins'];
+const ENTITIES = ['members', 'plans', 'subscriptions', 'payments', 'debts', 'reminders', 'checkins', 'expenses'];
 
 /* ---------- Local adapter (browser storage) ---------- */
 class LocalAdapter {

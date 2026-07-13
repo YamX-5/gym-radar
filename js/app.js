@@ -21,6 +21,7 @@ const ICONS = {
   add: svg('<path d="M12 5v14M5 12h14"/>'),
   qr: svg('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3M14 18v3M18 21h3M21 14v3"/>'),
   clock: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+  edit: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>'),
 };
 
 const ST = { screen: 'dashboard', role: 'admin', filter: 'all', search: '' };
@@ -31,6 +32,7 @@ const NAV = [
   { k: 'payments', t: 'المدفوعات', ic: '<rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 9.5h19"/>' },
   { k: 'assistant', t: 'المساعد', ic: '<path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.4 8.8 8.8 0 0 1-3.8-.8L3 20.5l1.4-4.3A8.4 8.4 0 1 1 21 11.5Z"/>' },
   { k: 'settings', t: 'الإعدادات', ic: '<circle cx="12" cy="12" r="3"/><path d="M19.4 13a7 7 0 0 0 0-2l1.5-1.2-1.7-2.9-1.8.7a7 7 0 0 0-1.7-1L15.3 4h-3.4l-.3 1.9a7 7 0 0 0-1.7 1l-1.8-.7-1.7 2.9L7.6 11a7 7 0 0 0 0 2l-1.5 1.2 1.7 2.9 1.8-.7a7 7 0 0 0 1.7 1l.3 1.9h3.4l.3-1.9a7 7 0 0 0 1.7-1l1.8.7 1.7-2.9Z"/>' },
+  { k: 'platform', t: 'المنصّة', admin: 'platform', ic: '<path d="M3 21h18"/><rect x="4" y="9" width="4" height="9"/><rect x="10" y="4" width="4" height="14"/><rect x="16" y="12" width="4" height="6"/>' },
 ];
 const ST_LABEL = { active: ['نشط', 'p-green'], expiring: ['ينتهي قريبًا', 'p-amber'], expired: ['منتهٍ', 'p-red'], finished: ['منتهٍ', 'p-red'], frozen: ['مُجمّد', 'p-muted'], none: ['بلا اشتراك', 'p-muted'] };
 
@@ -51,14 +53,29 @@ function applyBrand() {
 }
 
 /* ---------- nav ---------- */
+function navVisible(n) {
+  if (n.k === 'settings') return ST.role === 'admin';
+  if (n.k === 'platform') return !!ST.isPlatformAdmin;
+  return true;
+}
 function paintNav() {
-  $('#nav').innerHTML = NAV.filter(n => ST.role === 'admin' || n.k !== 'settings').map(n =>
+  $('#nav').innerHTML = NAV.filter(navVisible).map(n =>
     `<button class="${n.k === ST.screen ? 'on' : ''}" onclick="go('${n.k}')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${n.ic}</svg>${n.t}</button>`).join('');
-  $('#mnav').innerHTML = NAV.map(n =>
-    `<button class="${n.k === ST.screen ? 'on' : ''}" onclick="go('${n.k}')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${n.ic}</svg>${n.t.split(' ')[0]}</button>`).join('');
+  const CORE = ['dashboard', 'checkin', 'members', 'payments'];
+  const core = NAV.filter(n => CORE.includes(n.k));
+  const more = NAV.filter(n => !CORE.includes(n.k) && navVisible(n));
+  const btn = n => `<button class="${n.k === ST.screen ? 'on' : ''}" onclick="go('${n.k}')"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${n.ic}</svg>${n.t.split(' ')[0]}</button>`;
+  $('#mnav').innerHTML = core.map(btn).join('') +
+    `<button class="${more.some(n => n.k === ST.screen) ? 'on' : ''}" onclick="openMoreSheet()"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>المزيد</button>`;
+}
+function openMoreSheet() {
+  const more = NAV.filter(n => !['dashboard', 'checkin', 'members', 'payments'].includes(n.k) && navVisible(n));
+  const ov = document.createElement('div'); ov.className = 'sheet-scrim'; ov.onclick = e => { if (e.target === ov) ov.remove(); };
+  ov.innerHTML = `<div class="sheet">${more.map(n => `<button onclick="go('${n.k}');this.closest('.sheet-scrim').remove()"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${n.ic}</svg>${n.t}</button>`).join('')}</div>`;
+  document.body.appendChild(ov);
 }
 function go(k) { ST.screen = k; paintNav(); render(); window.scrollTo(0, 0); }
-async function render() { await ({ dashboard: dash, members: membersScreen, checkin: checkinScreen, payments: payments, assistant: assistant, settings: settings }[ST.screen])(); post(); }
+async function render() { await ({ dashboard: dash, members: membersScreen, checkin: checkinScreen, payments: payments, assistant: assistant, settings: settings, platform: platformScreen }[ST.screen])(); post(); }
 
 /* ---------- DASHBOARD ---------- */
 async function dash() {
@@ -115,7 +132,7 @@ function radarCol(cls, title, list, mc, barCol, kind) {
     const meta = kind === 'debt' ? `${nf(o.debt)} د.أ` : kind === 'expired' ? (o.days_left != null ? `منتهٍ منذ ${Math.abs(o.days_left)} يومًا` : 'منتهٍ') : `${esc(o.plan_name || '')} · يتبقّى ${o.days_left} يومًا`;
     const bar = kind !== 'debt' ? `<div class="bar"><i data-w="${kind === 'expired' ? 100 : Math.max(6, 100 - (o.days_left || 0) * 10)}" style="width:0;background:${barCol}"></i></div>` : '';
     return `<div class="row"><div class="av" style="background:${av(o.id)}">${esc(fi(o.full_name))}</div>
-      <div class="mid" onclick="openMember(${o.id})"><div class="nm">${esc(o.full_name)} ${o.reminded ? '<span class="pill p-green">تم التذكير ✓</span>' : ''}</div><div class="meta ${mc}">${meta}</div>${bar}</div>
+      <div class="mid" onclick="openMember(${o.id})"><div class="nm">${esc(o.full_name)} ${o.reminded ? '<span class="pill p-green">ذُكّر اليوم</span>' : (o.remCount > 0 ? `<span class="pill p-muted">تذكير رقم ${o.remCount + 1}</span>` : '')}</div><div class="meta ${mc}">${meta}</div>${bar}</div>
       <div class="acts"><button class="mini wa" onclick="wa(${o.id},'${kind}')">واتساب</button>${act}</div></div>`;
   }).join('') : '<div class="empty">لا أحد هنا</div>';
   return `<div class="col ${cls} rise"><div class="hd"><span class="dot"></span><span class="t">${title}</span><span class="c num">${list.length}</span></div>${rows}</div>`;
@@ -147,15 +164,17 @@ async function openMember(id) {
   const m = await DOMAIN.enrich(raw);
   const pays = (await STORE.where('payments', p => p.member_id === id)).sort((a, b) => a.date < b.date ? 1 : -1);
   const debts = await STORE.where('debts', d => d.member_id === id && d.status === 'open');
+  const refCount = await DOMAIN.referralCount(id);
   const barCol = m.sub_status === 'expired' ? 'var(--red)' : m.sub_status === 'expiring' ? 'var(--amber)' : 'var(--green)';
   const lbl = ST_LABEL[m.sub_status] || ST_LABEL.none;
   $('#drawerMount').innerHTML = `<div class="scrim" id="scrim" onclick="closeDrawer()"></div><div class="drawer" id="drawer">
     <div class="dh"><div class="av" style="width:44px;height:44px;font-size:17px;background:${av(m.id)}">${esc(fi(m.full_name))}</div>
-      <div style="flex:1"><div style="font-size:17px;font-weight:800">${esc(m.full_name)}</div><div class="num" style="font-size:12px;color:var(--muted)">${esc(m.phone || '—')}</div></div>
+      <div style="flex:1"><div style="font-size:17px;font-weight:800">${esc(m.full_name)}</div><div class="num" style="font-size:12px;color:var(--muted)">${esc(m.phone || '—')}</div>${refCount > 0 ? `<div style="font-size:11px;color:var(--accent);font-weight:600">أحال ${refCount} عضوًا</div>` : ''}</div>
+      <button class="close" onclick="openEditMember(${m.id})" title="تعديل">${ICONS.edit}</button>
       <button class="close" onclick="closeDrawer()">✕</button></div>
     <div style="padding:18px 20px;display:flex;flex-direction:column;gap:15px">
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:14px 16px">
-        <div style="display:flex;align-items:center"><b style="font-size:13px">${m.subscription ? 'الاشتراك الحالي — ' + esc(m.plan_name) : 'لا يوجد اشتراك'}</b><span class="pill ${lbl[1]}" style="margin-inline-start:auto">${lbl[0]}</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><b style="font-size:13px">${m.subscription ? 'الاشتراك الحالي — ' + esc(m.plan_name) : 'لا يوجد اشتراك'}</b>${m.subscription ? `<button class="mini" style="margin-inline-start:auto" onclick="openEditSub(${m.id})">تعديل</button>` : '<span style="margin-inline-start:auto"></span>'}<span class="pill ${lbl[1]}">${lbl[0]}</span></div>
         <div class="bar" style="max-width:none;margin-top:12px"><i style="width:${Math.round((m.progress || 0) * 100)}%;background:${barCol}"></i></div>
         ${m.subscription ? `<div style="display:flex;justify-content:space-between;margin-top:7px;font-size:11px;color:var(--muted)"><span class="num">${m.subscription.start_date || ''}</span><span class="num">${m.end_date || ''}</span></div>` : ''}</div>
       <div style="display:flex;gap:8px">
@@ -163,14 +182,78 @@ async function openMember(id) {
         ${m.phone ? `<button class="mini wa" style="padding:10px 14px" onclick="wa(${m.id},'pre_expiry')">واتساب</button>` : ''}
         <button class="btn btn-ghost" onclick="openDebt(${m.id})">دَين</button></div>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-ghost" style="flex:1" onclick="showMemberQR(${m.id})">${ICONS.qr} بطاقة الدخول (QR)</button>
-        <button class="btn btn-ghost" style="flex:1" onclick="manualCheckin(${m.id})">تسجيل حضور الآن</button></div>
+        <button class="btn btn-ghost" style="flex:1" onclick="showMemberQR(${m.id})">${ICONS.qr} بطاقة QR</button>
+        <button class="btn btn-ghost" style="flex:1" onclick="manualCheckin(${m.id})">تسجيل حضور</button>
+        ${m.status === 'frozen' ? `<button class="btn btn-ghost" style="flex:1" onclick="unfreezeMember(${m.id})">إلغاء التجميد</button>` : `<button class="btn btn-ghost" style="flex:1" onclick="freezeMember(${m.id})">تجميد</button>`}</div>
       ${debts.length ? `<div><b style="font-size:13px;color:var(--violet)">مستحقات مفتوحة</b>${debts.map(d => `<div class="line"><div style="flex:1">${esc(d.reason || 'دَين')} · <span class="num">${d.created_date}</span></div><b class="num">${nf(d.amount)} د.أ</b><button class="mini" onclick="settleDebt(${d.id},this,${m.id})">تسديد</button></div>`).join('')}</div>` : ''}
-      <div><b style="font-size:13px">سجلّ المدفوعات</b>${pays.length ? pays.slice(0, 8).map(p => `<div class="line"><span class="num" style="color:var(--muted);font-size:12px">${p.date}</span><span style="flex:1;color:var(--muted);font-size:12px">${methodAr(p.method)} · <span class="num">${esc(p.receipt || '')}</span></span><b class="num">${nf(p.amount)} د.أ</b></div>`).join('') : '<div class="empty">لا مدفوعات</div>'}</div>
+      <div><b style="font-size:13px">سجلّ المدفوعات</b>${pays.length ? pays.slice(0, 8).map(p => `<div class="line"><span class="num" style="color:var(--muted);font-size:12px">${p.date}</span><span style="flex:1;color:var(--muted);font-size:12px">${methodAr(p.method)} · <span class="num">${esc(p.receipt || '')}</span></span><b class="num">${nf(p.amount)} د.أ</b><button class="mini" style="margin-inline-start:8px" onclick="printReceipt(${p.id})">إيصال</button></div>`).join('') : '<div class="empty">لا مدفوعات</div>'}</div>
     </div></div>`;
   requestAnimationFrame(() => { $('#scrim').classList.add('show'); $('#drawer').classList.add('show'); });
 }
 function closeDrawer() { const d = $('#drawer'), s = $('#scrim'); if (!d) return; d.classList.remove('show'); s.classList.remove('show'); setTimeout(() => $('#drawerMount').innerHTML = '', 300); }
+
+/* ---- edit member profile ---- */
+async function openEditMember(id) {
+  const m = await STORE.get('members', id);
+  const g = m.gender === 'female';
+  modal('تعديل بيانات العضو', `
+    <div class="field"><label>الاسم الكامل *</label><input id="em_name" value="${esc(m.full_name || '')}"></div>
+    <div class="field"><label>رقم الهاتف</label><input id="em_phone" dir="ltr" style="text-align:right" value="${esc(m.phone || '')}"></div>
+    <div class="field"><label>تاريخ الميلاد</label><input id="em_birth" type="date" value="${esc(m.birth_date || '')}"></div>
+    <div class="field"><label>الجنس</label><select id="em_gender"><option value="male" ${g ? '' : 'selected'}>ذكر</option><option value="female" ${g ? 'selected' : ''}>أنثى</option></select></div>
+    <div class="field"><label>الحالة</label><select id="em_status">
+      <option value="active" ${m.status === 'active' ? 'selected' : ''}>نشط</option>
+      <option value="frozen" ${m.status === 'frozen' ? 'selected' : ''}>مُجمّد</option>
+      <option value="left" ${m.status === 'left' ? 'selected' : ''}>غادر</option></select></div>
+    <div class="field"><label>ملاحظات</label><textarea id="em_notes" rows="2" style="resize:vertical">${esc(m.notes || '')}</textarea></div>`,
+    `<button class="btn btn-primary" onclick="saveEditMember(${id})">حفظ</button>
+     <button class="btn btn-ghost" style="color:var(--red);border-color:var(--red)" onclick="deleteMember(${id})">حذف العضو</button>`);
+}
+async function saveEditMember(id) {
+  const name = $('#em_name').value.trim(); if (!name) return toast('الاسم مطلوب', 'var(--red)');
+  await STORE.put('members', { id, full_name: name, phone: $('#em_phone').value.replace(/[^\d+]/g, ''), birth_date: $('#em_birth').value || null, gender: $('#em_gender').value, status: $('#em_status').value, notes: $('#em_notes').value });
+  closeModal(); toast('تم حفظ التعديلات'); openMember(id);
+}
+async function deleteMember(id) {
+  if (!confirm('حذف هذا العضو وكل سجلاته (الاشتراكات والمدفوعات والمستحقات والحضور) نهائيًا؟')) return;
+  for (const e of ['subscriptions', 'payments', 'debts', 'reminders', 'checkins']) {
+    for (const r of await STORE.where(e, x => x.member_id === id)) await STORE.del(e, r.id);
+  }
+  await STORE.del('members', id);
+  closeModal(); closeDrawer(); toast('تم حذف العضو'); render();
+}
+
+/* ---- edit / delete subscription ---- */
+async function openEditSub(id) {
+  const sub = await DOMAIN.currentSub(id);
+  if (!sub) return toast('لا يوجد اشتراك لتعديله', 'var(--red)');
+  const isSession = sub.sessions_total != null && !sub.end_date;
+  modal('تعديل الاشتراك', `
+    <div class="field"><label>اسم الخطة</label><input id="es_plan" value="${esc(sub.plan_name || '')}"></div>
+    ${!isSession ? `<div class="field"><label>تاريخ البدء</label><input id="es_start" type="date" value="${esc(sub.start_date || '')}"></div>
+      <div class="field"><label>تاريخ الانتهاء</label><input id="es_end" type="date" value="${esc(sub.end_date || '')}"></div>`
+      : `<div class="field"><label>إجمالي الحصص</label><input id="es_stot" type="number" dir="ltr" style="text-align:right" value="${sub.sessions_total || 0}"></div>
+         <div class="field"><label>الحصص المستخدمة</label><input id="es_sused" type="number" dir="ltr" style="text-align:right" value="${sub.sessions_used || 0}"></div>`}
+    <div class="field"><label>المبلغ المدفوع</label><input id="es_price" type="number" dir="ltr" style="text-align:right" value="${sub.price_paid || 0}"></div>`,
+    `<button class="btn btn-primary" onclick="saveEditSub(${sub.id},${id})">حفظ</button>
+     <button class="btn btn-ghost" style="color:var(--red);border-color:var(--red)" onclick="deleteSub(${sub.id},${id})">حذف الاشتراك</button>`);
+}
+async function saveEditSub(subId, memberId) {
+  const p = { id: subId };
+  if ($('#es_plan')) p.plan_name = $('#es_plan').value.trim();
+  if ($('#es_start')) p.start_date = $('#es_start').value || null;
+  if ($('#es_end')) p.end_date = $('#es_end').value || null;
+  if ($('#es_stot')) p.sessions_total = +$('#es_stot').value;
+  if ($('#es_sused')) p.sessions_used = +$('#es_sused').value;
+  if ($('#es_price')) p.price_paid = +$('#es_price').value;
+  await STORE.put('subscriptions', p);
+  closeModal(); toast('تم تعديل الاشتراك'); openMember(memberId);
+}
+async function deleteSub(subId, memberId) {
+  if (!confirm('حذف هذا الاشتراك؟')) return;
+  await STORE.del('subscriptions', subId);
+  closeModal(); toast('تم حذف الاشتراك'); openMember(memberId);
+}
 
 /* ---------- PAYMENTS + ANALYTICS ---------- */
 async function payments() {
@@ -182,7 +265,17 @@ async function payments() {
   if (admin) {
     const rbm = await DOMAIN.revByMonth(6), rbp = await DOMAIN.revByPlan(), ms = await DOMAIN.methodSplit();
     const maxM = Math.max(...rbm.values, 1), maxP = Math.max(...rbp.map(p => p.value), 1);
-    analytics = `<div class="sec" style="margin-top:22px"><h2>التحليلات</h2><span class="pill p-muted" style="padding:4px 10px">للإدارة فقط 🔒</span></div>
+    const prof = await DOMAIN.monthProfit();
+    const exps = (await STORE.where('expenses', e => e.date >= DOMAIN.iso(f) && e.date < DOMAIN.iso(n))).sort((a, b) => a.date < b.date ? 1 : -1);
+    analytics = `<div class="sec" style="margin-top:22px"><h2>التحليلات والأرباح</h2><span class="pill p-muted" style="padding:4px 10px">للإدارة فقط</span></div>
+    <div class="grid2" style="margin-top:0">
+      <div class="mini-card"><h3>${ICONS.chart || ''}الربح هذا الشهر</h3>
+        <div class="line"><span style="flex:1">الإيراد</span><b class="num">${nf(prof.revenue)} د.أ</b></div>
+        <div class="line"><span style="flex:1">المصروفات</span><b class="num" style="color:var(--red)">${nf(prof.expenses)} د.أ</b></div>
+        <div class="line" style="border-bottom:none"><span style="flex:1"><b>الصافي</b></span><b class="num" style="color:${prof.profit >= 0 ? 'var(--green)' : 'var(--red)'};font-size:17px">${nf(prof.profit)} د.أ</b></div></div>
+      <div class="mini-card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><h3 style="margin:0">المصروفات</h3><button class="btn btn-ghost" style="padding:5px 12px;font-size:12px" onclick="openExpense()">+ مصروف</button></div>
+        ${exps.length ? exps.map(e => `<div class="line"><span style="flex:1">${EX_CATS[e.category] || e.category}${e.note ? ' · ' + esc(e.note) : ''}</span><b class="num" style="color:var(--red)">${nf(e.amount)}</b><button class="mini" style="margin-inline-start:8px" onclick="deleteExpense(${e.id})">حذف</button></div>`).join('') : '<div class="empty">لا مصروفات هذا الشهر</div>'}</div>
+    </div>
     <div class="grid2" style="margin-top:0">
       <div class="mini-card"><h3>الإيراد آخر 6 أشهر</h3><div class="chart">${rbm.values.map((v, i) => `<div class="b"><span class="v num">${nf(v)}</span><div class="bar2" data-h="${Math.round(v / maxM * 130)}" style="height:0"></div><span class="lb">${rbm.labels[i]}</span></div>`).join('')}</div></div>
       <div class="mini-card"><h3>الإيراد حسب الخطة</h3>${rbp.map(r => `<div class="hbar"><span class="k">${esc(r.label)}</span><span class="track"><i data-w="${Math.round(r.value / maxP * 100)}" style="width:0"></i></span><span class="val num">${nf(r.value)}</span></div>`).join('')}</div>
@@ -193,12 +286,13 @@ async function payments() {
         <div><div style="font-size:11px;color:var(--muted)">عدد العمليات</div><div style="font-size:18px;font-weight:800"><span class="num">${pays.length}</span></div></div></div></div></div>`;
   }
   $('#view').innerHTML = `<div class="top"><div><h1>المدفوعات</h1><div class="sub">هذا الشهر</div></div>
-    <div class="spacer"></div><div class="card" style="padding:12px 18px"><div style="font-size:11px;color:var(--muted)">إجمالي الشهر</div><div style="font-size:22px;font-weight:800"><span class="num" data-count="${Math.round(total)}">0</span> <span style="font-size:12px;color:var(--muted)">د.أ</span></div></div></div>
-  <div class="card">${pays.length ? `<div class="tblx"><table class="tbl"><thead><tr><th>الإيصال</th><th>العضو</th><th>المبلغ</th><th>الطريقة</th><th>التاريخ</th></tr></thead><tbody>${await payRows(pays)}</tbody></table></div>` : '<div class="empty">لا مدفوعات هذا الشهر</div>'}</div>${analytics}`;
+    <div class="spacer"></div><button class="btn btn-ghost" onclick="closeDayModal()">إقفال اليوم</button>
+    <div class="card" style="padding:12px 18px"><div style="font-size:11px;color:var(--muted)">إجمالي الشهر</div><div style="font-size:22px;font-weight:800"><span class="num" data-count="${Math.round(total)}">0</span> <span style="font-size:12px;color:var(--muted)">د.أ</span></div></div></div>
+  <div class="card">${pays.length ? `<div class="tblx"><table class="tbl"><thead><tr><th>الإيصال</th><th>العضو</th><th>المبلغ</th><th>الطريقة</th><th>التاريخ</th><th></th></tr></thead><tbody>${await payRows(pays)}</tbody></table></div>` : '<div class="empty">لا مدفوعات هذا الشهر</div>'}</div>${analytics}`;
 }
 async function payRows(pays) {
   const names = {}; for (const m of await STORE.all('members')) names[m.id] = m.full_name;
-  return pays.map(p => `<tr><td><span class="num" style="color:var(--muted);font-size:12px">${esc(p.receipt || '')}</span></td><td><b>${esc(names[p.member_id] || '—')}</b></td><td><b class="num">${nf(p.amount)} د.أ</b></td><td style="color:var(--muted)">${methodAr(p.method)}</td><td><span class="num" style="color:var(--muted);font-size:12px">${p.date}</span></td></tr>`).join('');
+  return pays.map(p => `<tr><td><span class="num" style="color:var(--muted);font-size:12px">${esc(p.receipt || '')}</span></td><td><b>${esc(names[p.member_id] || '—')}</b></td><td><b class="num">${nf(p.amount)} د.أ</b></td><td style="color:var(--muted)">${methodAr(p.method)}</td><td><span class="num" style="color:var(--muted);font-size:12px">${p.date}</span></td><td><button class="mini" onclick="printReceipt(${p.id})">إيصال</button></td></tr>`).join('');
 }
 
 /* ---------- ASSISTANT (functional bot) ---------- */
@@ -245,6 +339,11 @@ async function settings() {
       <div class="field"><label>المظهر</label><div class="seg"><button class="${s.theme !== 'light' ? 'on' : ''}" onclick="setTheme('dark',this)">داكن</button><button class="${s.theme === 'light' ? 'on' : ''}" onclick="setTheme('light',this)">فاتح</button></div></div>
       <div class="field"><label>أيام التنبيه قبل الانتهاء</label><div class="seg"><button onclick="bumpDays(-1)">−</button><button class="on num" style="min-width:44px" id="daysVal">${s.expiring_days || 7}</button><button onclick="bumpDays(1)">+</button></div></div>
       <div class="field"><label>مفتاح دولة واتساب</label><input style="width:90px" value="${esc(s.wa_cc || '962')}" onchange="saveSetting('wa_cc',this.value)"></div></div></div>
+  <div class="card" style="padding:18px 20px;margin-bottom:14px;max-width:760px"><h3 style="font-size:14px;margin-bottom:10px">بيانات الإيصال (اختياري)</h3>
+    <div style="display:flex;gap:22px;flex-wrap:wrap">
+      <div class="field" style="flex:1;min-width:180px"><label>الرقم الضريبي</label><input value="${esc(s.gym_tax || '')}" onchange="saveSetting('gym_tax',this.value)"></div>
+      <div class="field" style="flex:1;min-width:180px"><label>هاتف النادي</label><input class="ltr-input" dir="ltr" style="text-align:right" value="${esc(s.gym_phone || '')}" onchange="saveSetting('gym_phone',this.value)"></div>
+    </div></div>
   <div class="card" style="padding:18px 20px;margin-bottom:14px;max-width:760px"><h3 style="font-size:14px;margin-bottom:6px">الخطط والأسعار</h3>${plans.map(p => `<div class="line"><b style="flex:1">${esc(p.name)}</b><span style="color:var(--muted);font-size:12px">${p.type === 'duration' ? p.days + ' يومًا' : p.sessions + ' حصة'}</span><b class="num" style="margin-inline-start:14px">${p.price} د.أ</b></div>`).join('')}</div>
   <div class="card" style="padding:15px 20px;display:flex;align-items:center;gap:12px;max-width:760px;margin-bottom:14px"><div style="font-size:13px;color:var(--muted)">وحدة تسجيل الحضور — لتفعيل تقرير «حضر واشتراكه منتهٍ»</div><div class="seg" style="margin-inline-start:auto"><button class="${s.attendance_enabled !== '1' ? 'on' : ''}" onclick="saveSetting('attendance_enabled','0');settings()">مُعطّلة</button><button class="${s.attendance_enabled === '1' ? 'on' : ''}" onclick="saveSetting('attendance_enabled','1');settings()">مُفعّلة</button></div></div>
   <div class="card" style="padding:15px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;max-width:760px"><div style="font-size:13px;color:var(--muted);flex:1">النسخ الاحتياطي والبيانات</div>
@@ -264,19 +363,24 @@ function closeModal() { const w = $('#modalWrap'); if (w) { w.classList.remove('
 
 async function openAddMember() {
   const plans = await STORE.all('plans');
+  const members = (await STORE.all('members')).sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '', 'ar'));
   window._pick = { plan: plans[0]?.id, method: 'cash' };
   modal('عضو جديد', `
     <div class="field"><label>الاسم الكامل *</label><input id="am_name"></div>
     <div class="field"><label>رقم الهاتف</label><input id="am_phone" placeholder="07XXXXXXXX" dir="ltr" style="text-align:right"></div>
+    <div class="field"><label>تاريخ الميلاد (اختياري)</label><input id="am_birth" type="date"></div>
     <div class="field"><label>الخطة</label><div class="planpick" id="am_plans">${plans.map(p => `<button class="planopt ${p.id === window._pick.plan ? 'on' : ''}" onclick="pickPlan(${p.id},this)"><b>${esc(p.name)}</b><span class="num">${p.price} د.أ</span></button>`).join('')}</div></div>
-    <div class="field"><label>طريقة الدفع</label><div class="seg" id="am_method"><button class="on" onclick="pickMethod('cash',this)">نقدًا</button><button onclick="pickMethod('cliq',this)">كليك</button><button onclick="pickMethod('other',this)">أخرى</button></div></div>`,
+    <div class="field"><label>طريقة الدفع</label><div class="seg" id="am_method"><button class="on" onclick="pickMethod('cash',this)">نقدًا</button><button onclick="pickMethod('cliq',this)">كليك</button><button onclick="pickMethod('other',this)">أخرى</button></div></div>
+    <div class="field"><label>أحاله (اختياري)</label><select id="am_ref"><option value="">— لا أحد —</option>${members.map(mm => `<option value="${mm.id}">${esc(mm.full_name)}</option>`).join('')}</select></div>`,
     `<button class="btn btn-primary" onclick="saveMember()">حفظ وإنشاء اشتراك</button>`);
 }
 function pickPlan(id, el) { window._pick.plan = id; document.querySelectorAll('#am_plans .planopt,#rn_plans .planopt').forEach(x => x.classList.remove('on')); el.classList.add('on'); }
 function pickMethod(m, el) { window._pick.method = m; el.parentElement.querySelectorAll('button').forEach(x => x.classList.remove('on')); el.classList.add('on'); }
 async function saveMember() {
   const name = $('#am_name').value.trim(); if (!name) return toast('الاسم مطلوب', 'var(--red)');
-  const m = await STORE.put('members', { full_name: name, phone: $('#am_phone').value.replace(/[^\d+]/g, ''), gender: 'male', join_date: DOMAIN.iso(DOMAIN.today()), status: 'active', notes: '', birth_date: null });
+  const ref = $('#am_ref') && $('#am_ref').value ? +$('#am_ref').value : null;
+  const birth = $('#am_birth') && $('#am_birth').value ? $('#am_birth').value : null;
+  const m = await STORE.put('members', { full_name: name, phone: $('#am_phone').value.replace(/[^\d+]/g, ''), gender: 'male', join_date: DOMAIN.iso(DOMAIN.today()), status: 'active', notes: '', birth_date: birth, referred_by: ref });
   if (window._pick.plan) await DOMAIN.createSubscription(m.id, window._pick.plan, { method: window._pick.method });
   closeModal(); confetti(); toast('تمت إضافة العضو'); render();
 }
@@ -384,6 +488,7 @@ async function ensureAuth() {
   STORE.adapter.role = staff.role || 'admin';
   ST.role = staff.role || 'admin';
   ST.userEmail = session.user.email;
+  try { const { data } = await sb.rpc('is_platform_admin'); ST.isPlatformAdmin = data === true; } catch (e) { ST.isPlatformAdmin = false; }
   return true;
 }
 function renderLogin(msg) {

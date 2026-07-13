@@ -14,7 +14,7 @@ class SupabaseAdapter {
     this.gymId = null;     // set at login (from staff row); scopes settings writes
     this.role = null;
   }
-  _entities() { return ['members', 'plans', 'subscriptions', 'payments', 'debts', 'reminders', 'checkins']; }
+  _entities() { return ['members', 'plans', 'subscriptions', 'payments', 'debts', 'reminders', 'checkins', 'expenses']; }
 
   async init() {
     // load THIS gym's settings + all tables ONCE, in parallel (RLS returns only my gym's rows).
